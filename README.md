@@ -34,6 +34,7 @@ cloud_sql_proxy takes a few arguments to configure what instances to connect to 
   IP. Defaults to `PUBLIC,PRIVATE`
 * `-term_timeout=30s`: How long to wait for connections to close before shutting
   down the proxy. Defaults to 0.
+* `-instances_file="/path/to/instances/file"`: Specify a file to load and watch for instances configuration changes. It's a comma separated list similar to the `-instances` param value.
 
 Note: `-instances` and `-instances_metadata` may be used at the same time but
 are not compatible with the `-fuse` flag.
