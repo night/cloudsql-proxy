@@ -35,6 +35,10 @@ import (
 	sqladmin "google.golang.org/api/sqladmin/v1beta4"
 )
 
+func makeInstanceKey(instance string, network string, address string) string {
+	return fmt.Sprintf("%s:%s:%s", instance, network, address)
+}
+
 // WatchInstances handles the lifecycle of local sockets used for proxying
 // local connections.  Values received from the updates channel are
 // interpretted as a comma-separated list of instances.  The set of sockets in
@@ -51,7 +55,7 @@ func WatchInstances(dir string, cfgs []instanceConfig, updates <-chan string, cl
 		if err != nil {
 			return nil, err
 		}
-		staticInstances[v.Instance] = l
+		staticInstances[makeInstanceKey(v.Instance, v.Network, v.Address)] = l
 	}
 
 	if updates != nil {
@@ -70,33 +74,33 @@ func watchInstancesLoop(dir string, dst chan<- proxy.Conn, updates <-chan string
 
 		stillOpen := make(map[string]net.Listener)
 		for _, cfg := range list {
-			instance := cfg.Instance
+			instanceKey := makeInstanceKey(cfg.Instance, cfg.Network, cfg.Address)
 
 			// If the instance is specified in the static list don't do anything:
 			// it's already open and should stay open forever.
-			if _, ok := static[instance]; ok {
+			if _, ok := static[instanceKey]; ok {
 				continue
 			}
 
-			if l, ok := dynamicInstances[instance]; ok {
-				delete(dynamicInstances, instance)
-				stillOpen[instance] = l
+			if l, ok := dynamicInstances[instanceKey]; ok {
+				delete(dynamicInstances, instanceKey)
+				stillOpen[instanceKey] = l
 				continue
 			}
 
 			l, err := listenInstance(dst, cfg)
 			if err != nil {
-				logging.Errorf("Couldn't open socket for %q: %v", instance, err)
+				logging.Errorf("Couldn't open socket for %q: %v", instanceKey, err)
 				continue
 			}
-			stillOpen[instance] = l
+			stillOpen[instanceKey] = l
 		}
 
 		// Any instance in dynamicInstances was not in the most recent metadata
 		// update. Clean up those instances' sockets by closing them; note that
 		// this does not affect any existing connections instance.
-		for instance, listener := range dynamicInstances {
-			logging.Infof("Closing socket for instance %v", instance)
+		for instanceKey, listener := range dynamicInstances {
+			logging.Infof("Closing socket for instanceKey %v", instanceKey)
 			listener.Close()
 		}
 
